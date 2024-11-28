@@ -36,9 +36,14 @@ protected:
     virtual void mousePressEvent(QMouseEvent* event) override;
     virtual void mouseReleaseEvent(QMouseEvent* event) override;
     virtual void mouseMoveEvent(QMouseEvent* event) override;
+    virtual void wheelEvent(QWheelEvent* event) override;
+    virtual void dragEnterEvent(QDragEnterEvent* event) override;
+    virtual void dropEvent(QDropEvent* event) override;
 
 private:
     void initViewCube();
+    void createCubeAt(const gp_Pnt& position);
+    gp_Pnt convertClickToPoint(const QPoint& pos);
 
     Handle(AIS_InteractiveContext) myContext;
     Handle(V3d_View) myView;

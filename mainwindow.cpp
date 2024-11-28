@@ -33,6 +33,8 @@ MainWindow::MainWindow(QWidget *parent)
     QTreeWidget* treeWidget = new QTreeWidget(splitter);
     treeWidget->setHeaderLabel("Components");
     treeWidget->setMinimumWidth(250);
+    treeWidget->setDragEnabled(true);
+    treeWidget->setDragDropMode(QAbstractItemView::DragOnly);
 
     // Create OpenCASCADE view
     myOccView = new OCCView(splitter);

@@ -1,7 +1,10 @@
 #include "occview.h"
 #include <QMouseEvent>
 #include <QSurfaceFormat>
-
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QMimeData>
+#include <BRepPrimAPI_MakeBox.hxx>
 #ifdef _WIN32
 #include <WNT_Window.hxx>
 #endif
@@ -14,6 +17,7 @@ OCCView::OCCView(QWidget* parent)
     myYmax(0),
     myCurrentButton(Qt::NoButton)
 {
+    setAcceptDrops(true);
     // Set focus policy to enable keyboard input
     setFocusPolicy(Qt::StrongFocus);
     
@@ -31,27 +35,31 @@ OCCView::~OCCView()
 
 void OCCView::initializeGL()
 {
+    qDebug() << "Initializing OpenGL context";
+    
     // Initialize OpenGL functions
     initializeOpenGLFunctions();
 
     try {
-        // Create OpenCASCADE graphics driver
+        // Create the OpenCascade viewer
         Handle(Aspect_DisplayConnection) displayConnection = new Aspect_DisplayConnection();
         Handle(OpenGl_GraphicDriver) graphicDriver = new OpenGl_GraphicDriver(displayConnection, false);
-
-        // Create Viewer and View
+        
         myViewer = new V3d_Viewer(graphicDriver);
         myViewer->SetDefaultLights();
         myViewer->SetLightOn();
         
-        myView = myViewer->CreateView();
-
-        // Create interactive context
-        myContext = new AIS_InteractiveContext(myViewer);
-
         // Set up the view
+        myView = myViewer->CreateView();
         myView->SetBackgroundColor(Quantity_NOC_BLACK);
         myView->MustBeResized();
+        
+        // Create the interactive context
+        myContext = new AIS_InteractiveContext(myViewer);
+        myContext->SetDisplayMode(AIS_Shaded, Standard_True);
+        
+        // Initialize the view cube
+        initViewCube();
         
         // Map the window
         WId window_handle = (WId)winId();
@@ -61,20 +69,12 @@ void OCCView::initializeGL()
         if (!window->IsMapped()) {
             window->Map();
         }
-
-        // Create and initialize view cube
-        initViewCube();
-
-        // Create a test shape (yellow sphere)
-        Handle(AIS_Shape) sphere = new AIS_Shape(BRepPrimAPI_MakeSphere(100.0));
-        myContext->SetColor(sphere, Quantity_NOC_YELLOW, Standard_False);
-        myContext->SetMaterial(sphere, Graphic3d_NOM_PLASTIC, Standard_False);
-        myContext->SetDisplayMode(sphere, AIS_Shaded, Standard_True);  // Set display mode to shaded
-        myContext->Display(sphere, Standard_False);
-
-        // Set the view to fit all objects
+        
+        // Initial view setup
         myView->FitAll();
         myView->ZFitAll();
+        
+        qDebug() << "OpenGL initialization completed";
     }
     catch (const Standard_Failure& ex) {
         qDebug() << "OpenCASCADE exception during initialization:" << ex.GetMessageString();
@@ -121,15 +121,21 @@ void OCCView::initViewCube()
     {
         // Create and customize the view cube
         myViewCube = new AIS_ViewCube();
-        
-        // Set size and position (reduced by 75%)
-        myViewCube->SetSize(17.5);  // Reduced from 70 to 17.5
+
+        myContext->Display(myViewCube, Standard_False);
+      
+        // Set size and position
         myViewCube->SetBoxColor(Quantity_NOC_GRAY75);
         myViewCube->SetFixedAnimationLoop(false);
         myViewCube->SetTransformPersistence(
-            new Graphic3d_TransformPers(Graphic3d_TMF_TriedronPers, 
-                                      Aspect_TOTP_LEFT_LOWER,
-                                      Graphic3d_Vec2i(25, 25)));  // Reduced offset for smaller cube
+            new Graphic3d_TransformPers(
+                Graphic3d_TMF_TriedronPers,
+                Aspect_TOTP_LEFT_LOWER,
+                Graphic3d_Vec2i(85, 85)));
+
+        myViewCube->SetAutoStartAnimation(Standard_True);
+        myViewCube->SetSize(60);
+        myViewCube->SetFontHeight(13);
         
         // Set text properties
         myViewCube->SetTextColor(Quantity_NOC_WHITE);
@@ -138,12 +144,12 @@ void OCCView::initViewCube()
         // Set up view camera animation
         Handle(AIS_AnimationCamera) aCamera = new AIS_AnimationCamera("ViewCubeCamera", myView);
         myViewCube->SetViewAnimation(aCamera);
-        myViewCube->SetDuration(0.2);  // Faster animation for better responsiveness
+        myViewCube->SetDuration(0.2);
         
         // Enable selection for interaction
         myContext->Display(myViewCube, Standard_True);
         myContext->SetDisplayMode(myViewCube, AIS_Shaded, Standard_True);
-        myContext->Activate(myViewCube, 0);  // Use default selection mode
+        myContext->Activate(myViewCube, 0);
     }
 }
 
@@ -219,5 +225,115 @@ void OCCView::mouseMoveEvent(QMouseEvent* event)
         }
 
         myLastPos = event->pos();
+    }
+}
+
+void OCCView::wheelEvent(QWheelEvent* event)
+{
+    if (!myView.IsNull()) {
+        // Get the number of degrees scrolled
+        const int delta = event->angleDelta().y();
+        
+        // Current scale
+        Standard_Real currentScale = myView->Scale();
+        
+        // Zoom factor (adjust this value to change zoom sensitivity)
+        Standard_Real zoomFactor = 1.1;
+        
+        if (delta > 0) {
+            // Zoom in
+            myView->SetZoom(currentScale * zoomFactor);
+        } else {
+            // Zoom out
+            myView->SetZoom(currentScale / zoomFactor);
+        }
+        
+        myView->Redraw();
+    }
+    event->accept();
+}
+
+void OCCView::dragEnterEvent(QDragEnterEvent* event)
+{
+    qDebug() << "Drag Enter Event - MIME formats:" << event->mimeData()->formats();
+    if (event->mimeData()->hasText()) {
+        qDebug() << "Text content:" << event->mimeData()->text();
+    }
+    event->acceptProposedAction();
+}
+
+void OCCView::dropEvent(QDropEvent* event)
+{
+    qDebug() << "Drop Event received at:" << event->pos();
+
+    // Get drop position
+    gp_Pnt dropPoint = convertClickToPoint(event->pos());
+    qDebug() << "Drop point calculated:" << dropPoint.X() << dropPoint.Y() << dropPoint.Z();
+    
+    // Create and display the cube
+    createCubeAt(dropPoint);
+    
+    // Ensure proper view update
+    myContext->UpdateCurrentViewer();
+    myView->Redraw();
+    
+    event->acceptProposedAction();
+    qDebug() << "Drop event processed successfully";
+}
+
+void OCCView::createCubeAt(const gp_Pnt& position)
+{
+    qDebug() << "Creating cube at position:" << position.X() << position.Y() << position.Z();
+    
+    try {
+        // Create a larger cube (100x100x100) for better visibility
+        Standard_Real size = 10.0;
+        // Calculate the corner position by offsetting half the size in each direction
+        gp_Pnt cornerPos(
+            position.X() - size/2,
+            position.Y() - size/2,
+            position.Z() - size/2
+        );
+        TopoDS_Shape cube = BRepPrimAPI_MakeBox(cornerPos, size, size, size).Shape();
+        
+        Handle(AIS_Shape) aisBox = new AIS_Shape(cube);
+        aisBox->SetColor(Quantity_NOC_BLUE);
+        myContext->SetDisplayMode(aisBox, 1, Standard_True); // 1 = shaded mode in OpenCASCADE 7.8
+        myContext->SetMaterial(aisBox, Graphic3d_NOM_GOLD, Standard_True);
+        myContext->Display(aisBox, Standard_True);
+        
+        // Update the view
+        myView->Redraw();
+        
+        qDebug() << "Cube creation completed";
+    }
+    catch (const Standard_Failure& ex) {
+        qDebug() << "Error creating cube:" << ex.GetMessageString();
+    }
+}
+
+gp_Pnt OCCView::convertClickToPoint(const QPoint& pos)
+{
+    try {
+        // Get the view parameters
+        Standard_Real X, Y, Z;
+        Standard_Real XEye, YEye, ZEye;
+        Standard_Real XAt, YAt, ZAt;
+        
+        myView->Eye(XEye, YEye, ZEye);
+        myView->At(XAt, YAt, ZAt);
+        
+        // Convert click position to 3D point
+        myView->Convert(pos.x(), height() - pos.y(), X, Y, Z);
+        
+        // Create point with some offset from camera
+        gp_Pnt worldPos(X, Y, Z);
+        qDebug() << "Click converted to:" << X << Y << Z;
+        
+        return worldPos;
+    }
+    catch (const Standard_Failure& ex) {
+        qDebug() << "Error converting point:" << ex.GetMessageString();
+        return gp_Pnt(0, 0, 0);
     }
 }
