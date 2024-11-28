@@ -2,24 +2,31 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QTreeWidget>
 #include "occview.h"
+
+class QTreeWidget;
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
+    MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+private slots:
+    void onTopView();
+    void onBottomView();
+    void onLeftView();
+    void onRightView();
+    void onAxonometricView();
+
 private:
-    void setupUI();
-    void createTreeWidget();
-    void populateTreeWidget();
+    void setupToolbar();
+    void setupDarkTheme();
+    void populateTree(QTreeWidget* tree);
 
     OCCView* myOccView;
-    QTreeWidget* treeWidget;
 };
 
 #endif // MAINWINDOW_H

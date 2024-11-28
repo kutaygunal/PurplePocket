@@ -1,239 +1,238 @@
 #include "mainwindow.h"
-#include <QLabel>
-#include <QMenuBar>
-#include <QMenu>
-#include <QToolBar>
-#include <QStatusBar>
+#include <QApplication>
+#include <QHeaderView>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QToolBar>
+#include <QAction>
+#include <QIcon>
 #include <QSplitter>
+#include <QPalette>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    setupUI();
+    // Set window properties
+    setWindowTitle("PurplePocket");
+    resize(1200, 800);
+
+    // Create central widget and main layout
+    QWidget* centralWidget = new QWidget(this);
+    QHBoxLayout* mainLayout = new QHBoxLayout(centralWidget);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
+    setCentralWidget(centralWidget);
+
+    // Create splitter for tree and view
+    QSplitter* splitter = new QSplitter(Qt::Horizontal, centralWidget);
+    mainLayout->addWidget(splitter);
+
+    // Create and setup tree widget
+    QTreeWidget* treeWidget = new QTreeWidget(splitter);
+    treeWidget->setHeaderLabel("Components");
+    treeWidget->setMinimumWidth(250);
+
+    // Create OpenCASCADE view
+    myOccView = new OCCView(splitter);
+
+    // Add widgets to splitter
+    splitter->addWidget(treeWidget);
+    splitter->addWidget(myOccView);
+
+    // Setup toolbar
+    setupToolbar();
+
+    // Setup dark theme
+    setupDarkTheme();
+
+    // Populate tree with demo items
+    populateTree(treeWidget);
+
+    // Resize tree widget to fit content
+    treeWidget->setColumnCount(1);
+    treeWidget->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    treeWidget->setMaximumWidth(treeWidget->header()->sectionSize(0) + 50); // Add some padding
+
+    // Show window maximized
+    showMaximized();
 }
 
 MainWindow::~MainWindow()
 {
 }
 
-void MainWindow::setupUI()
+void MainWindow::setupToolbar()
 {
-    // Set window title and size
-    setWindowTitle("OpenCascade Qt Application");
-    resize(1200, 800);
+    QToolBar* viewToolBar = addToolBar("View");
+    viewToolBar->setMovable(false);
 
-    // Set dark theme for the entire application
-    setStyleSheet(
-        "QMainWindow {"
-        "    background-color: #1e1e1e;"
-        "}"
-        "QMenuBar {"
-        "    background-color: #2b2b2b;"
-        "    color: #e0e0e0;"
-        "}"
-        "QMenuBar::item:selected {"
-        "    background-color: #3f3f3f;"
-        "}"
-        "QMenu {"
-        "    background-color: #2b2b2b;"
-        "    color: #e0e0e0;"
-        "    border: 1px solid #3f3f3f;"
-        "}"
-        "QMenu::item:selected {"
-        "    background-color: #3f3f3f;"
-        "}"
+    // Top view action
+    QAction* topViewAction = new QAction("Top", this);
+    connect(topViewAction, &QAction::triggered, this, &MainWindow::onTopView);
+    viewToolBar->addAction(topViewAction);
+
+    // Bottom view action
+    QAction* bottomViewAction = new QAction("Bottom", this);
+    connect(bottomViewAction, &QAction::triggered, this, &MainWindow::onBottomView);
+    viewToolBar->addAction(bottomViewAction);
+
+    // Left view action
+    QAction* leftViewAction = new QAction("Left", this);
+    connect(leftViewAction, &QAction::triggered, this, &MainWindow::onLeftView);
+    viewToolBar->addAction(leftViewAction);
+
+    // Right view action
+    QAction* rightViewAction = new QAction("Right", this);
+    connect(rightViewAction, &QAction::triggered, this, &MainWindow::onRightView);
+    viewToolBar->addAction(rightViewAction);
+
+    // Axonometric view action
+    QAction* axoViewAction = new QAction("Axo", this);
+    connect(axoViewAction, &QAction::triggered, this, &MainWindow::onAxonometricView);
+    viewToolBar->addAction(axoViewAction);
+
+    // Apply dark theme to toolbar
+    viewToolBar->setStyleSheet(
         "QToolBar {"
-        "    background-color: #2b2b2b;"
-        "    border: 1px solid #3f3f3f;"
+        "   background-color: #2b2b2b;"
+        "   border: none;"
+        "   spacing: 3px;"
         "}"
-        "QToolBar::separator {"
-        "    background-color: #3f3f3f;"
+        "QToolButton {"
+        "   background-color: #3f3f3f;"
+        "   border: 1px solid #2b2b2b;"
+        "   color: #e0e0e0;"
+        "   padding: 5px;"
+        "   border-radius: 3px;"
         "}"
-        "QStatusBar {"
-        "    background-color: #2b2b2b;"
-        "    color: #e0e0e0;"
+        "QToolButton:hover {"
+        "   background-color: #4f4f4f;"
         "}"
-        "QSplitter::handle {"
-        "    background-color: #3f3f3f;"
+        "QToolButton:pressed {"
+        "   background-color: #2979ff;"
         "}"
     );
-
-    // Create central widget and layout
-    QWidget* centralWidget = new QWidget(this);
-    QHBoxLayout* mainLayout = new QHBoxLayout(centralWidget);
-    mainLayout->setContentsMargins(0, 0, 0, 0);
-    mainLayout->setSpacing(0);
-
-    // Create splitter
-    QSplitter* splitter = new QSplitter(Qt::Horizontal, centralWidget);
-    mainLayout->addWidget(splitter);
-
-    // Create and add tree widget to the left side
-    createTreeWidget();
-    splitter->addWidget(treeWidget);
-
-    // Create OpenCASCADE view widget on the right side
-    myOccView = new OCCView(this);
-    splitter->addWidget(myOccView);
-
-    // Set the initial sizes of the splitter
-    QList<int> sizes;
-    sizes << 200 << 1000;  // Left panel: 200px, Right panel: 1000px
-    splitter->setSizes(sizes);
-
-    setCentralWidget(centralWidget);
-
-    // Create menu bar
-    QMenuBar* menuBar = this->menuBar();
-    QMenu* fileMenu = menuBar->addMenu("&File");
-    fileMenu->addAction("&Exit", this, &QWidget::close);
-
-    QMenu* viewMenu = menuBar->addMenu("&View");
-    viewMenu->addAction("&Fit All", myOccView, &OCCView::fitAll);
-
-    // Create toolbar
-    QToolBar* toolbar = addToolBar("Main Toolbar");
-    toolbar->addAction("Fit All", myOccView, &OCCView::fitAll);
-
-    // Create status bar
-    statusBar()->showMessage("Ready");
-
-    // Populate the tree widget
-    populateTreeWidget();
 }
 
-void MainWindow::createTreeWidget()
+void MainWindow::setupDarkTheme()
 {
-    treeWidget = new QTreeWidget(this);
-    treeWidget->setHeaderLabel("Categories");
-    treeWidget->setMinimumWidth(200);
-    treeWidget->setMaximumWidth(400);
+    // Set dark theme colors
+    QPalette darkPalette;
+    darkPalette.setColor(QPalette::Window, QColor("#1e1e1e"));
+    darkPalette.setColor(QPalette::WindowText, QColor("#e0e0e0"));
+    darkPalette.setColor(QPalette::Base, QColor("#2b2b2b"));
+    darkPalette.setColor(QPalette::AlternateBase, QColor("#3f3f3f"));
+    darkPalette.setColor(QPalette::ToolTipBase, QColor("#e0e0e0"));
+    darkPalette.setColor(QPalette::ToolTipText, QColor("#e0e0e0"));
+    darkPalette.setColor(QPalette::Text, QColor("#e0e0e0"));
+    darkPalette.setColor(QPalette::Button, QColor("#2b2b2b"));
+    darkPalette.setColor(QPalette::ButtonText, QColor("#e0e0e0"));
+    darkPalette.setColor(QPalette::Link, QColor("#2979ff"));
+    darkPalette.setColor(QPalette::Highlight, QColor("#2979ff"));
+    darkPalette.setColor(QPalette::HighlightedText, QColor("#e0e0e0"));
 
-    // Set style for dark mode
-    treeWidget->setStyleSheet(
+    qApp->setPalette(darkPalette);
+
+    // Set stylesheet for QTreeWidget
+    QString treeStyle = 
         "QTreeWidget {"
-        "    background-color: #2b2b2b;"
-        "    color: #e0e0e0;"
-        "    border: 1px solid #3f3f3f;"
+        "   background-color: #2b2b2b;"
+        "   border: none;"
         "}"
         "QTreeWidget::item {"
-        "    padding: 4px;"
-        "    border-radius: 2px;"
-        "}"
-        "QTreeWidget::item:hover {"
-        "    background-color: #3f3f3f;"
+        "   color: #e0e0e0;"
+        "   padding: 5px;"
         "}"
         "QTreeWidget::item:selected {"
-        "    background-color: #2979ff;"
-        "    color: #ffffff;"
+        "   background-color: #2979ff;"
         "}"
-        "QTreeWidget::branch {"
-        "    background-color: #2b2b2b;"
-        "}"
-        "QTreeWidget::branch:has-siblings:!adjoins-item {"
-        "    border-image: url(none.png) 0;"
-        "}"
-        "QTreeWidget::branch:has-siblings:adjoins-item {"
-        "    border-image: url(none.png) 0;"
-        "}"
-        "QTreeWidget::branch:!has-children:!has-siblings:adjoins-item {"
-        "    border-image: url(none.png) 0;"
-        "}"
-        "QTreeWidget::branch:has-children:!has-siblings:closed,"
-        "QTreeWidget::branch:closed:has-children:has-siblings {"
-        "    border-image: none;"
-        "    image: url(none.png);"
-        "}"
-        "QTreeWidget::branch:open:has-children:!has-siblings,"
-        "QTreeWidget::branch:open:has-children:has-siblings {"
-        "    border-image: none;"
-        "    image: url(none.png);"
-        "}"
-        "QHeaderView::section {"
-        "    background-color: #2b2b2b;"
-        "    color: #e0e0e0;"
-        "    padding: 4px;"
-        "    border: 1px solid #3f3f3f;"
-        "}"
-    );
+        "QTreeWidget::item:hover {"
+        "   background-color: #3f3f3f;"
+        "}";
+
+    qApp->setStyleSheet(treeStyle);
 }
 
-void MainWindow::populateTreeWidget()
+void MainWindow::populateTree(QTreeWidget* tree)
 {
-    // Create Flow category
-    QTreeWidgetItem* flowCategory = new QTreeWidgetItem(treeWidget);
-    flowCategory->setText(0, "Flow");
-    flowCategory->setExpanded(true);
-    flowCategory->setIcon(0, style()->standardIcon(QStyle::SP_DriveNetIcon));
+    // Flow Components
+    QTreeWidgetItem* flowRoot = new QTreeWidgetItem(tree);
+    flowRoot->setText(0, "Flow Components");
+    
+    QStringList flowComponents = {
+        "Pump",
+        "Valve",
+        "Pipe",
+        "Tank",
+        "Heat Exchanger",
+        "Filter"
+    };
 
-    // Add Chambers subcategory under Flow
-    QTreeWidgetItem* chambersCategory = new QTreeWidgetItem(flowCategory);
-    chambersCategory->setText(0, "Chambers");
-    chambersCategory->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
-    chambersCategory->setExpanded(true);
+    for (const QString& component : flowComponents) {
+        QTreeWidgetItem* item = new QTreeWidgetItem(flowRoot);
+        item->setText(0, component);
+    }
 
-    // Add chamber types
-    QTreeWidgetItem* momentumChamber = new QTreeWidgetItem(chambersCategory);
-    momentumChamber->setText(0, "Momentum");
-    momentumChamber->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
+    // Thermal Components
+    QTreeWidgetItem* thermalRoot = new QTreeWidgetItem(tree);
+    thermalRoot->setText(0, "Thermal Components");
+    
+    QStringList thermalComponents = {
+        "Heater",
+        "Cooler",
+        "Temperature Sensor",
+        "Thermal Insulation",
+        "Heat Sink",
+        "Radiator"
+    };
 
-    QTreeWidgetItem* plenumChamber = new QTreeWidgetItem(chambersCategory);
-    plenumChamber->setText(0, "Plenum");
-    plenumChamber->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
+    for (const QString& component : thermalComponents) {
+        QTreeWidgetItem* item = new QTreeWidgetItem(thermalRoot);
+        item->setText(0, component);
+    }
 
-    // Add Elements subcategory under Flow
-    QTreeWidgetItem* elementsCategory = new QTreeWidgetItem(flowCategory);
-    elementsCategory->setText(0, "Elements");
-    elementsCategory->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
-    elementsCategory->setExpanded(true);
+    // Expand all items
+    tree->expandAll();
+}
 
-    // Add element types
-    QTreeWidgetItem* tubeElement = new QTreeWidgetItem(elementsCategory);
-    tubeElement->setText(0, "Tube");
-    tubeElement->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
+void MainWindow::onTopView()
+{
+    if (Handle(V3d_View) view = myOccView->getView()) {
+        view->SetProj(V3d_Zpos);
+        view->FitAll();
+    }
+}
 
-    QTreeWidgetItem* orificeElement = new QTreeWidgetItem(elementsCategory);
-    orificeElement->setText(0, "Orifice");
-    orificeElement->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
+void MainWindow::onBottomView()
+{
+    if (Handle(V3d_View) view = myOccView->getView()) {
+        view->SetProj(V3d_Zneg);
+        view->FitAll();
+    }
+}
 
-    // Create Thermal category
-    QTreeWidgetItem* thermalCategory = new QTreeWidgetItem(treeWidget);
-    thermalCategory->setText(0, "Thermal");
-    thermalCategory->setExpanded(true);
-    thermalCategory->setIcon(0, style()->standardIcon(QStyle::SP_DriveHDIcon));
+void MainWindow::onLeftView()
+{
+    if (Handle(V3d_View) view = myOccView->getView()) {
+        view->SetProj(V3d_Xneg);
+        view->FitAll();
+    }
+}
 
-    // Add Thermal Nodes subcategory
-    QTreeWidgetItem* thermalNodesCategory = new QTreeWidgetItem(thermalCategory);
-    thermalNodesCategory->setText(0, "Thermal Nodes");
-    thermalNodesCategory->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
-    thermalNodesCategory->setExpanded(true);
+void MainWindow::onRightView()
+{
+    if (Handle(V3d_View) view = myOccView->getView()) {
+        view->SetProj(V3d_Xpos);
+        view->FitAll();
+    }
+}
 
-    // Add thermal node types
-    QTreeWidgetItem* boundaryNode = new QTreeWidgetItem(thermalNodesCategory);
-    boundaryNode->setText(0, "Boundary Thermal Node");
-    boundaryNode->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
-
-    QTreeWidgetItem* internalNode = new QTreeWidgetItem(thermalNodesCategory);
-    internalNode->setText(0, "Internal Thermal Node");
-    internalNode->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
-
-    // Add Resistors subcategory
-    QTreeWidgetItem* resistorsCategory = new QTreeWidgetItem(thermalCategory);
-    resistorsCategory->setText(0, "Resistors");
-    resistorsCategory->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
-    resistorsCategory->setExpanded(true);
-
-    // Add resistor types
-    QTreeWidgetItem* conductorResistor = new QTreeWidgetItem(resistorsCategory);
-    conductorResistor->setText(0, "Conductor");
-    conductorResistor->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
-
-    QTreeWidgetItem* convectorResistor = new QTreeWidgetItem(resistorsCategory);
-    convectorResistor->setText(0, "Convector");
-    convectorResistor->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
-
-    QTreeWidgetItem* heatTransferResistor = new QTreeWidgetItem(resistorsCategory);
-    heatTransferResistor->setText(0, "Heat Transfer");
-    heatTransferResistor->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
+void MainWindow::onAxonometricView()
+{
+    if (Handle(V3d_View) view = myOccView->getView()) {
+        view->SetProj(V3d_XposYnegZpos);
+        view->FitAll();
+    }
 }
