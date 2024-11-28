@@ -7,7 +7,7 @@
 #include <Aspect_DisplayConnection.hxx>
 #include <OpenGl_GraphicDriver.hxx>
 #include <AIS_Shape.hxx>
-#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeSphere.hxx>
 #include <BRepTools.hxx>
 
 #ifdef _WIN32
@@ -71,16 +71,16 @@ void OCCView::initContext()
 
 void OCCView::initDemoScene()
 {
-    // Create a simple box
-    BRepPrimAPI_MakeBox boxMaker(gp_Pnt(-50, -50, -50), 100, 100, 100);
-    Handle(AIS_Shape) aisBox = new AIS_Shape(boxMaker.Shape());
+    // Create a sphere with radius 50
+    BRepPrimAPI_MakeSphere sphereMaker(50.0);
+    Handle(AIS_Shape) aisSphere = new AIS_Shape(sphereMaker.Shape());
     
-    // Set display properties
-    aisBox->SetColor(Quantity_NOC_RED);
-    aisBox->SetDisplayMode(AIS_Shaded);
+    // Set display properties - yellow color
+    aisSphere->SetColor(Quantity_NOC_YELLOW);
+    aisSphere->SetDisplayMode(AIS_Shaded);
     
-    // Display the box
-    myContext->Display(aisBox, Standard_True);
+    // Display the sphere
+    myContext->Display(aisSphere, Standard_True);
     
     // Fit all objects in view
     fitAll();
