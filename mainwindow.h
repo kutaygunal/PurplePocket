@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include "occview.h"
 
 class MainWindow : public QMainWindow
 {
@@ -13,6 +14,7 @@ public:
 
 private:
     void setupUI();
+    OCCView* myOccView;
 };
 
 #endif // MAINWINDOW_H

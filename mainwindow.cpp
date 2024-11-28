@@ -18,23 +18,24 @@ MainWindow::~MainWindow()
 void MainWindow::setupUI()
 {
     // Set window title and size
-    setWindowTitle("Qt Application");
-    resize(800, 600);
+    setWindowTitle("OpenCascade Qt Application");
+    resize(1024, 768);
 
-    // Create central widget with a welcome message
-    QLabel* centralWidget = new QLabel("Welcome to Qt Application!", this);
-    centralWidget->setAlignment(Qt::AlignCenter);
-    setCentralWidget(centralWidget);
+    // Create OpenCASCADE view widget
+    myOccView = new OCCView(this);
+    setCentralWidget(myOccView);
 
     // Create menu bar
     QMenuBar* menuBar = this->menuBar();
     QMenu* fileMenu = menuBar->addMenu("&File");
     fileMenu->addAction("&Exit", this, &QWidget::close);
 
+    QMenu* viewMenu = menuBar->addMenu("&View");
+    viewMenu->addAction("&Fit All", myOccView, &OCCView::fitAll);
+
     // Create toolbar
     QToolBar* toolbar = addToolBar("Main Toolbar");
-    toolbar->addAction("Action 1");
-    toolbar->addAction("Action 2");
+    toolbar->addAction("Fit All", myOccView, &OCCView::fitAll);
 
     // Create status bar
     statusBar()->showMessage("Ready");
